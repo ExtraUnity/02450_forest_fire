@@ -6,14 +6,18 @@ import pandas as pd
 from utils import monthToNum, dayToNum
 from scipy.linalg import svd
 from matplotlib.pyplot import figure, legend, plot, show, title, xlabel, ylabel
+import statsmodels.api as sm 
+import pylab as py 
 
 # Load xls sheet with data
 df = pd.read_csv("forestfires.csv")
 
 #Log transform the area
-#TODO: Show that this is necessary and it corrects the normal distribution.
-y = (df["area"]+1).apply(math.log)
-
+y_t = df["area"]
+sm.qqplot(y_t)
+y = (y_t+2).apply(math.log)
+sm.qqplot(y)
+py.show()
 
 #Convert month column to integer
 month_column = df["month"]
