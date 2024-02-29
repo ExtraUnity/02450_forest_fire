@@ -6,7 +6,6 @@ import pandas as pd
 from utils import monthToNum, dayToNum
 from scipy.linalg import svd
 from matplotlib.pyplot import figure, legend, plot, show, title, xlabel, ylabel
-import statsmodels.api as sm 
 import pylab as py 
 import matplotlib.pyplot as plt
 
@@ -15,10 +14,8 @@ df = pd.read_csv("forestfires.csv")
 
 #Log transform the area
 y_t = df["area"]
-sm.qqplot(y_t)
 
 y = (y_t+1).apply(math.log)
-sm.qqplot(y)
 
 py.show()
 
@@ -40,6 +37,7 @@ df["day"] = day_column_int
 X = df.loc[:, df.columns != "month"].values
 
 
+
 #One-out-of-K encoding for month
 month = np.array(df["month"].values, dtype=int).T
 K = month.max()
@@ -47,10 +45,9 @@ month_encoding = np.zeros((month.size, K))
 month_encoding[np.arange(month.size), month-1] = 1
 X = np.concatenate((X[:,:-1], month_encoding), axis=1)
 
-
 #SVD
 #Standardize the data
-Y = (X - np.ones((len(y), 1)) * X.mean(0)) / X.std()
+Y = (X - np.ones((len(y), 1)) * X.mean(0)) / X.std(0)
 U, S, Vh = svd(Y, full_matrices=False)
 V = Vh.T
 
@@ -59,28 +56,38 @@ Z = Y @ V
 
 j = 0
 k = 1
-#plot(Z[:, j], Z[:, k], "o")
-#f = figure()
-#title("PCA2")
-#plot(Z[:, k], y, "o")
 
+#Plot pc1 and pc2 for log_area
 for c in range(5):
     # select indices belonging to class c:
     class_mask1 = y > (c-1)/2
     class_mask2 = y <= c/2
-    class_mask = class_mask1.values & class_mask2.values
+    class_mask = class_mask1.values if c==4 else class_mask1.values & class_mask2.values
     plot(Z[class_mask, j], Z[class_mask, k], "o")
-legend(["0", "]0;0.5]", "]0.5;1]", "]1;1.5]", "1.5<"])
-title("Log(area)")
+legend(["0", "]0;0.5]", "]0.5;1]", "]1;1.5]", "1.5<"], bbox_to_anchor=(1.05, 1.0), loc='upper left')
+plt.tight_layout()
+title("Log(area+1)")
 xlabel("PC1")
 ylabel("PC2")
 show()
+
+#Plot pc1 and pc2 for months
+for c in range(12):
+    # select indices belonging to class c:
+    class_mask = df["month"] == c
+    plot(Z[class_mask, j], Z[class_mask, k], "o", label="{0}".format(c+1))
+legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+plt.tight_layout()
+title("Month")
+xlabel("PC1")
+ylabel("PC2")
+show()
+
 # Compute variance explained by principal components
 rho = (S * S) / (S * S).sum()
 
 threshold = 0.9
 
-print(rho)
 # Plot variance explained
 plt.figure()
 plt.plot(range(1, len(rho) + 1), rho, "x-")
