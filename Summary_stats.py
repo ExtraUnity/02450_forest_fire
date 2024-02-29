@@ -5,12 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 #Read CSV file.
-df = pd.read_csv(r"C:\Users\rosam\Documents\DTU\02450 Machine Learning and Data Mining\Project 1 Forest Fires\forestfires.csv")
+df = pd.read_csv("forestfires.csv")
 #print(df)
 
 ### SUMMARY STATISTICS
 summary_df = df.describe()
-print(summary_df)
+#print(summary_df)
 #skewness = df.skew()
 #additional_stats = pd.DataFrame([skewness], index = ['skewness'])
 
