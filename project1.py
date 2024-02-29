@@ -6,7 +6,6 @@ import pandas as pd
 from utils import monthToNum, dayToNum
 from scipy.linalg import svd
 from matplotlib.pyplot import figure, legend, plot, show, title, xlabel, ylabel
-import pylab as py 
 import matplotlib.pyplot as plt
 
 # Load xls sheet with data
@@ -16,6 +15,7 @@ df = pd.read_csv("forestfires.csv")
 y_t = df["area"]
 
 y = (y_t+1).apply(math.log)
+df["area"] = y
 
 # Before transforming and one-hot encoding, extract attribute names
 attributeNames = list(df.columns)
