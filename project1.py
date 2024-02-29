@@ -1,4 +1,3 @@
-# exercise 2.1.1
 import math
 import importlib_resources
 import numpy as np
