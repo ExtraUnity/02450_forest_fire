@@ -23,5 +23,5 @@ for i, column in enumerate(numerical_columns, 1):
     plt.tight_layout(pad=3.0)
 
 # Overall plot adjustments
-plt.suptitle('Histograms of Forest Fire Data Attributes', fontsize=16, y=1.02)
+#plt.suptitle('Histograms of Forest Fire Data Attributes', fontsize=16, y=1.02)
 plt.show()

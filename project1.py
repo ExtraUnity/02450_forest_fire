@@ -17,6 +17,11 @@ y_t = df["area"]
 
 y = (y_t+1).apply(math.log)
 
+# Before transforming and one-hot encoding, extract attribute names
+attributeNames = list(df.columns)
+attributeNames.remove('month')  # 'month' will be one-hot encoded, so remove it
+attributeNames.remove('area')  # Assuming 'area' is the target variable and not included in X
+
 py.show()
 
 plt.hist(y_t)
@@ -99,4 +104,25 @@ plt.ylabel("Variance explained")
 plt.legend(["Individual", "Cumulative", "Threshold"])
 plt.grid()
 plt.show()
+
+
+month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+attributeNames.extend(month_names)
+N, M = X.shape
+pcs = [0, 1, 2]
+legendStrs = ["PC" + str(e + 1) for e in pcs]
+c = ["r", "g", "b"]
+bw = 0.2
+r = np.arange(1, M + 1)
+for i in pcs:
+    plt.bar(r + i * bw, V[:, i], width=bw, color=c[i])
+plt.xticks(r + bw, attributeNames, rotation=90)  # Rotate attribute names for better visibility
+plt.xlabel("Attributes")
+plt.ylabel("Component coefficients")
+plt.legend(legendStrs)
+plt.grid()
+plt.title("PCA Component Coefficients")
+plt.tight_layout()  # Adjust layout to make room for the rotated x-axis labels
+plt.show()
+
 
