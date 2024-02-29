@@ -22,12 +22,6 @@ attributeNames = list(df.columns)
 attributeNames.remove('month')  # 'month' will be one-hot encoded, so remove it
 attributeNames.remove('area')  # Assuming 'area' is the target variable and not included in X
 
-#py.show()
-
-plt.hist(y_t)
-show()
-plt.hist(y)
-show()
 #Convert month column to integer
 month_column = df["month"]
 month_column_int = month_column.apply(monthToNum)
