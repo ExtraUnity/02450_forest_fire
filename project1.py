@@ -22,7 +22,7 @@ attributeNames = list(df.columns)
 attributeNames.remove('month')  # 'month' will be one-hot encoded, so remove it
 attributeNames.remove('area')  # Assuming 'area' is the target variable and not included in X
 
-py.show()
+#py.show()
 
 plt.hist(y_t)
 show()
