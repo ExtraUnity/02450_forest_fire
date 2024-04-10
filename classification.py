@@ -4,10 +4,10 @@ import math as math
 from sklearn import model_selection, tree
 import sklearn.linear_model as lm
 from utils import monthToNum, dayToNum
+from dtuimldmtools import mcnemar
 
 filename = 'forestfires.csv'
 df = pd.read_csv(filename)
-# df = df.drop(df.index[379])
 # Log transform the area
 y_t = df["area"]
 y = (y_t+1).apply(math.log)
@@ -26,19 +26,12 @@ df["day"] = day_column_int
 
 X = df.loc[:, df.columns != "area"].values
 
-# One-out-of-K encoding for month
-# month = np.array(df["month"].values, dtype=int).T
-# K = month.max()
-# month_encoding = np.zeros((month.size, K))
-# month_encoding[np.arange(month.size), month-1] = 1
-# X = np.concatenate((X[:,:-1], month_encoding), axis=1)
 
 attributeNames = ["X", "Y", "Month",
                   "Day", "FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain"]
-#print(data)
 
 classLabels = np.array([1 if b else 0 for b in y])
-#classLabels[classLabels == 'M'] = 'F'
+y = classLabels
 K = len(classLabels)
 classNames = (set(classLabels))
 classDict = dict(zip(classNames, range(K)))
@@ -56,16 +49,10 @@ attributeNames = ["Offset"] + attributeNames
 M = M + 1
 seed = 3
 
-
-
-
-### SCRIPT START ###
-
 ## Crossvalidation
 # Create crossvalidation partition for evaluation
 K = 10
 CV = model_selection.KFold(K, shuffle=True)
-# CV = model_selection.KFold(K, shuffle=False)
 
 # Values of lambda
 lambdas = np.power(10.0, range(-5, 9))
@@ -74,28 +61,17 @@ lambdas = np.power(10.0, range(-5, 9))
 tc = np.arange(1, 11, 1, dtype=int)
 
 # Initialize variables
-# T = len(lambdas)
 Error_train_log = np.empty((K, 1))
 Error_test_log = np.empty((K, 1))
 Error_train_tree = np.empty((K, 1))
 Error_test_tree = np.empty((K, 1))
 Error_test_baseline = np.empty((K, 1))
-Error_train_rlr = np.empty((K, 1))
-Error_test_rlr = np.empty((K, 1))
-Error_train_nofeatures = np.empty((K, 1))
-Error_test_nofeatures = np.empty((K, 1))
-w_rlr = np.empty((M, K))
-mu = np.empty((K, M - 1))
-sigma = np.empty((K, M - 1))
-w_noreg = np.empty((M, K))
 opt_lambda = np.zeros(K)
 opt_depth = np.zeros(K)
-gen_error_log = np.zeros(K)
-gen_error_tree = np.zeros(K)
-
-# Baseline model
-print(classLabels)
-pred = np.ones(len(classLabels)) if np.sum(classLabels) > len(classLabels) else np.zeros(len(classLabels))
+y_true_values = []
+log_y_est = []
+tree_y_est = []
+baseline_y_est = []
 
 print("Outer fold   Logistic Regression     Classification tree     Baseline")
 print("i            opt_lambda  Error       max_depth   Error       Error")
@@ -107,14 +83,13 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
     y_test = y[test_index]
     internal_cross_validation = 10
     CV2 = model_selection.KFold(internal_cross_validation, shuffle=True)
+    y_true_values.append(y_test)
 
     train_error_inner_log = np.empty((internal_cross_validation, len(lambdas)))
     test_error_inner_log = np.empty((internal_cross_validation, len(lambdas)))
-    gen_error1_log = np.zeros(len(lambdas))
 
     train_error_inner_tree = np.empty((internal_cross_validation, len(tc)))
     test_error_inner_tree = np.empty((internal_cross_validation, len(tc)))
-    gen_error1_tree = np.zeros(len(tc))
 
     test_error_inner_baseline = np.empty((internal_cross_validation,1))
 
@@ -124,7 +99,6 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
         y_train_inner = y_train[train_index_inner]
         X_test_inner = X_train[test_index_inner]
         y_test_inner = y_train[test_index_inner]
-
 
         # TRAIN LOGISTIC REGRESSION FOR ALL LAMBDA VALUES
         for k in range(len(lambdas)):
@@ -137,7 +111,6 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
 
             train_error_inner_log[i,k] = np.sum(y_train_est != y_train_inner) / len(y_train_inner)
             test_error_inner_log[i,k] = np.sum(y_test_est != y_test_inner) / len(y_test_inner)
-            gen_error1_log[k] += (len(y_test_inner) / len(X_train)) * test_error_inner_log[i,k]
 
 
         # TRAIN CT FOR ALL DEPTHS
@@ -151,7 +124,6 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
 
             train_error_inner_tree[i,k] = np.sum(y_train_est != y_train_inner) / len(y_train_inner)
             test_error_inner_tree[i,k] = np.sum(y_test_est != y_test_inner) / len(y_test_inner)
-            gen_error1_tree[k] += (len(y_test_inner) / len(X_train)) * test_error_inner_tree[i,k]
 
 
         # BASELINE MODEL
@@ -160,7 +132,7 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
 
     ## LOGISTIC REGRESSION
     # CHOOSE OPTIMAL LAMBDA VALUE AND FIT MODEL
-    opt_lambda[j] = lambdas[np.argmin(gen_error1_log)]
+    opt_lambda[j] = lambdas[np.argmin(test_error_inner_log[i])]
     mdl_log = lm.LogisticRegression(penalty='l2', C=1/opt_lambda[j])
     mdl_log.fit(X_train, y_train)
 
@@ -171,11 +143,12 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
     # COMPUTE ERROR FOR LOGISTIC REGRESSION
     Error_train_log[j] = np.sum(y_train_est_log != y_train) / len(y_train)
     Error_test_log[j] = np.sum(y_test_est_log != y_test) / len(y_test)
-    gen_error_log[j] += (len(y_test) / len(X)) * Error_test_log[j][0]
+
+    log_y_est.append(y_test_est_log)
 
     ## DECISION TREE
     # CHOOSE OPTIMAL DEPTH AND FIT MODEL
-    opt_depth[j] = tc[np.argmin(gen_error1_tree)]
+    opt_depth[j] = tc[np.argmin(test_error_inner_tree[i])]
     mdl_tree = tree.DecisionTreeClassifier(criterion="gini", max_depth=int(opt_depth[j]))
     mdl_tree.fit(X_train, y_train)
 
@@ -186,54 +159,45 @@ for j, (train_index, test_index) in enumerate(CV.split(X, y)):
     # COMPUTE ERROR FOR DECISION TREE
     Error_train_tree[j] = np.sum(y_train_est_tree != y_train) / len(y_train)
     Error_test_tree[j] = np.sum(y_test_est_tree != y_test) / len(y_test)
-    gen_error_tree[j] += (len(y_test) / len(X)) * Error_test_tree[j][0]
 
+    tree_y_est.append(y_test_est_tree)
 
     ## BASELINE MODEL
     y_test_est_baseline = np.ones(len(y_test)) if np.sum(classLabels) > len(classLabels) else np.zeros(len(y_test))
     Error_test_baseline[j] = np.sum(y_test_est_baseline != y_test) / len(y_test)
+
+    baseline_y_est.append(y_test_est_baseline)
+
     print(str(j) + "            " + str(opt_lambda[j]) + "   "+str(Error_test_log[j][0]) + "     "+ str(opt_depth[j]) + "     " + str(Error_test_tree[j][0]) + "    " + str(Error_test_baseline[j][0]))
 
+y_true_values = np.concatenate(y_true_values)
+log_y_est = np.concatenate(log_y_est)
+tree_y_est = np.concatenate(tree_y_est)
+baseline_y_est = np.concatenate(baseline_y_est)
 
 
-total_gen_error_log = np.sum(gen_error_log)
-total_gen_error_tree = np.sum(gen_error_tree)
+mdl_final = lm.LogisticRegression(penalty='l2', C=1/100)
+X_train, X_test, y_train, y_test = model_selection.train_test_split(
+    X, y, test_size=0.8
+)
+mdl_final.fit(X_train, y_train)
+y_est = mdl_final.predict(X_test).T
+error = np.sum(y_est != y_test) / len(y_test)
+
+## Results
+
+print("Final logistic regression model error: " + str(error))
+print("Weights:")
+print(mdl_final.coef_)
+print("Logistic regression generalization error: " + str(Error_test_log.mean()))
+print("Classification tree generalization error: " + str(Error_test_tree.mean()))
+print("Baseline generalization error: " + str(Error_test_baseline.mean()))
 
 
-
-# # Display results
-# print("Linear regression without feature selection:")
-# print("- Training error: {0}".format(Error_train.mean()))
-# print("- Test error:     {0}".format(Error_test.mean()))
-# print(
-#     "- R^2 train:     {0}".format(
-#         (Error_train_nofeatures.sum() - Error_train.sum())
-#         / Error_train_nofeatures.sum()
-#     )
-# )
-# print(
-#     "- R^2 test:     {0}\n".format(
-#         (Error_test_nofeatures.sum() - Error_test.sum()) / Error_test_nofeatures.sum()
-#     )
-# )
-# print("Regularized linear regression:")
-# print("- Training error: {0}".format(Error_train_rlr.mean()))
-# print("- Test error:     {0}".format(Error_test_rlr.mean()))
-# print(
-#     "- R^2 train:     {0}".format(
-#         (Error_train_nofeatures.sum() - Error_train_rlr.sum())
-#         / Error_train_nofeatures.sum()
-#     )
-# )
-# print(
-#     "- R^2 test:     {0}\n".format(
-#         (Error_test_nofeatures.sum() - Error_test_rlr.sum())
-#         / Error_test_nofeatures.sum()
-#     )
-# )
-
-# print("Weights in last fold:")
-# for m in range(M):
-#     print("{:>15} {:>15}".format(attributeNames[m], np.round(w_rlr[m, -1], 2)))
-
-### SCRIPT END
+print("-----McNemar's test-----")
+print("Logistic vs Tree")
+print(mcnemar(y_true=y_true_values, yhatA=log_y_est, yhatB=tree_y_est))
+print("Logistic vs Baseline")
+print(mcnemar(y_true=y_true_values, yhatA=log_y_est, yhatB=baseline_y_est))
+print("Tree vs Baseline")
+print(mcnemar(y_true=y_true_values, yhatA=tree_y_est, yhatB=baseline_y_est))
